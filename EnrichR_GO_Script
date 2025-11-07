@@ -68,12 +68,13 @@ write.csv(go_up$CC, "GO_UP_CC.csv", row.names=FALSE)
 plot_top10_down <- function(go_obj, title) {
   go_obj %>%
     as.data.frame() %>%
-    slice_min(p.adjust, n = 10) %>%
-    mutate(Description = factor(Description, levels=rev(Description))) %>%
-    ggplot(aes(x=Description, y=-log10(p.adjust))) +
-    geom_col(fill = "#000000") +  # black
+    arrange(p.adjust) %>%
+    slice(1:10) %>%                          # <- IMPORTANT
+    mutate(Description = factor(Description, levels = rev(Description))) %>%
+    ggplot(aes(x = Description, y = -log10(p.adjust))) +
+    geom_col(fill = "#000000") +
     coord_flip() +
-    theme_bw(base_size=12) +
+    theme_bw(base_size = 12) +
     ggtitle(title) +
     xlab("") + ylab("-log10(adj p-value)")
 }
@@ -81,12 +82,13 @@ plot_top10_down <- function(go_obj, title) {
 plot_top10_up <- function(go_obj, title) {
   go_obj %>%
     as.data.frame() %>%
-    slice_min(p.adjust, n = 10) %>%
-    mutate(Description = factor(Description, levels=rev(Description))) %>%
-    ggplot(aes(x=Description, y=-log10(p.adjust))) +
-    geom_col(fill = "#DAA520") +  # gold
+    arrange(p.adjust) %>%
+    slice(1:10) %>%                          # <- IMPORTANT
+    mutate(Description = factor(Description, levels = rev(Description))) %>%
+    ggplot(aes(x = Description, y = -log10(p.adjust))) +
+    geom_col(fill = "#DAA520") +             # gold
     coord_flip() +
-    theme_bw(base_size=12) +
+    theme_bw(base_size = 12) +
     ggtitle(title) +
     xlab("") + ylab("-log10(adj p-value)")
 }
@@ -94,7 +96,7 @@ plot_top10_up <- function(go_obj, title) {
 ## Create a folder to save plots
 dir.create("GO_Plots", showWarnings = FALSE)
 
-## Save plots one-by-one. This is weird. they produce colored figure but cant save it. So, you need to generate plot object first and this! 
+## Save plots one-by-one.This is weird. they produce colored figure but cant save it. So, you need to generate plot object first and this! 
 ## Generate plot objects first
 p_down_bp <- plot_top10_down(go_down$BP, "DOWN — GO: Biological Process")
 p_down_mf <- plot_top10_down(go_down$MF, "DOWN — GO: Molecular Function")
@@ -126,5 +128,8 @@ plot_top10_down(go_down$CC, "DOWN — GO: Cellular Component")
 plot_top10_up(go_up$BP,   "UP — GO: Biological Process")
 plot_top10_up(go_up$MF,   "UP — GO: Molecular Function")
 plot_top10_up(go_up$CC,   "UP — GO: Cellular Component")
+
+
+
 
 
