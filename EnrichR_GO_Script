@@ -1,1 +1,130 @@
+##Rscript to create bar plot and relevant tablses of EnrichR GO analysis
+## Load libraries (install.packages if not installed). Also, before you start start copying the file paths of your background, up amnd downregulated. We will use clusterprofiler EnrichR. (We can use GSEA too). 
+library(clusterProfiler)
+library(org.Mm.eg.db) #Use species specific database
+library(dplyr)
+library(ggplot2)
+library(readr)
+
+## Create the FILE PATHS_bg:Background Gene Sets (All genes), up: Upregulated genes you want to investigate. down:Downregulated genes you want to investigate.
+##Also, while you copying the path, dont forget to change if \ to /.
+bg_file <- "*path for background gene sets"
+down_file <- "* copy path downregulated top genes you want to see"
+up_file <- "* copy path upregulated top genes you want to see "
+
+
+## Load Background Gene Universe
+bg_genes <- read_tsv(bg_file, show_col_types = FALSE) %>% 
+  pull(ext_gene.x) %>% 
+  unique()
+
+## Load DEG lists
+down_genes <- read_tsv(down_file, show_col_types = FALSE) %>% 
+  pull(ext_gene.x) %>% 
+  unique()
+
+up_genes <- read_tsv(up_file, show_col_types = FALSE) %>% 
+  pull(ext_gene.x) %>% 
+  unique()
+
+## Convert Gene Symbols → Entrez IDs
+convert_to_entrez <- function(genes) {
+  bitr(genes, fromType="SYMBOL", toType="ENTREZID", OrgDb=org.Mm.eg.db) %>% pull(ENTREZID) %>% unique()
+}
+
+bg <- convert_to_entrez(bg_genes)
+down <- convert_to_entrez(down_genes)
+up <- convert_to_entrez(up_genes)
+
+
+## Function to run GO (BP, MF, CC)
+run_go <- function(gene_set, universe_set) {
+  list(
+    BP = enrichGO(gene_set, OrgDb=org.Mm.eg.db, keyType="ENTREZID",
+                  ont="BP", universe=universe_set, pvalueCutoff=1, qvalueCutoff=1, readable=TRUE),
+    MF = enrichGO(gene_set, OrgDb=org.Mm.eg.db, keyType="ENTREZID",
+                  ont="MF", universe=universe_set, pvalueCutoff=1, qvalueCutoff=1, readable=TRUE),
+    CC = enrichGO(gene_set, OrgDb=org.Mm.eg.db, keyType="ENTREZID",
+                  ont="CC", universe=universe_set, pvalueCutoff=1, qvalueCutoff=1, readable=TRUE)
+  )
+}
+
+go_down <- run_go(down, bg)
+go_up   <- run_go(up, bg)
+
+
+## Save GO tables
+write.csv(go_down$BP, "GO_DOWN_BP.csv", row.names=FALSE)
+write.csv(go_down$MF, "GO_DOWN_MF.csv", row.names=FALSE)
+write.csv(go_down$CC, "GO_DOWN_CC.csv", row.names=FALSE)
+
+write.csv(go_up$BP, "GO_UP_BP.csv", row.names=FALSE)
+write.csv(go_up$MF, "GO_UP_MF.csv", row.names=FALSE)
+write.csv(go_up$CC, "GO_UP_CC.csv", row.names=FALSE)
+
+
+
+## Plotting Function (Top 10 terms)
+plot_top10_down <- function(go_obj, title) {
+  go_obj %>%
+    as.data.frame() %>%
+    slice_min(p.adjust, n = 10) %>%
+    mutate(Description = factor(Description, levels=rev(Description))) %>%
+    ggplot(aes(x=Description, y=-log10(p.adjust))) +
+    geom_col(fill = "#000000") +  # black
+    coord_flip() +
+    theme_bw(base_size=12) +
+    ggtitle(title) +
+    xlab("") + ylab("-log10(adj p-value)")
+}
+
+plot_top10_up <- function(go_obj, title) {
+  go_obj %>%
+    as.data.frame() %>%
+    slice_min(p.adjust, n = 10) %>%
+    mutate(Description = factor(Description, levels=rev(Description))) %>%
+    ggplot(aes(x=Description, y=-log10(p.adjust))) +
+    geom_col(fill = "#DAA520") +  # gold
+    coord_flip() +
+    theme_bw(base_size=12) +
+    ggtitle(title) +
+    xlab("") + ylab("-log10(adj p-value)")
+}
+
+## Create a folder to save plots
+dir.create("GO_Plots", showWarnings = FALSE)
+
+## Save plots one-by-one. This is weird. they produce colored figure but cant save it. So, you need to generate plot object first and this! 
+## Generate plot objects first
+p_down_bp <- plot_top10_down(go_down$BP, "DOWN — GO: Biological Process")
+p_down_mf <- plot_top10_down(go_down$MF, "DOWN — GO: Molecular Function")
+p_down_cc <- plot_top10_down(go_down$CC, "DOWN — GO: Cellular Component")
+
+p_up_bp <- plot_top10_up(go_up$BP, "UP — GO: Biological Process")
+p_up_mf <- plot_top10_up(go_up$MF, "UP — GO: Molecular Function")
+p_up_cc <- plot_top10_up(go_up$CC, "UP — GO: Cellular Component")
+
+## Create folder if needed
+dir.create("GO_Plots", showWarnings = FALSE)
+
+## Save with ggsave using *plot objects*
+ggsave("GO_Plots/DOWN_BP.png", p_down_bp, width=6, height=5, dpi=300)
+ggsave("GO_Plots/DOWN_MF.png", p_down_mf, width=6, height=5, dpi=300)
+ggsave("GO_Plots/DOWN_CC.png", p_down_cc, width=6, height=5, dpi=300)
+
+ggsave("GO_Plots/UP_BP.png", p_up_bp, width=6, height=5, dpi=300)
+ggsave("GO_Plots/UP_MF.png", p_up_mf, width=6, height=5, dpi=300)
+ggsave("GO_Plots/UP_CC.png", p_up_cc, width=6, height=5, dpi=300)
+
+
+
+## Generate Plots
+plot_top10_down(go_down$BP, "DOWN — GO: Biological Process")
+plot_top10_down(go_down$MF, "DOWN — GO: Molecular Function")
+plot_top10_down(go_down$CC, "DOWN — GO: Cellular Component")
+
+plot_top10_up(go_up$BP,   "UP — GO: Biological Process")
+plot_top10_up(go_up$MF,   "UP — GO: Molecular Function")
+plot_top10_up(go_up$CC,   "UP — GO: Cellular Component")
+
 
